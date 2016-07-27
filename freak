@@ -1,0 +1,46 @@
+#! /usr/bin/env bash
+#Script to list all manually installed packages and understanding what they are for.
+
+pathtofile="$HOME/Desktop/packages.list"
+#SET THE ABOVE VARIABLE TO POINT TO A VALID DIRECTORY. IDEALLY, KEEP ~/Desktop/packages.list
+
+
+if [ $# -eq 1 ] && [ "$1" == "update" ]; then
+	echo
+	echo "Getting Packages List. Please Wait"
+	apt list | grep 'installed' | grep -v 'automatic' > "$pathtofile" 2>/dev/null
+	echo "$(wc -l $pathtofile | cut -f1 -d' ') Packages Listed. Run '${0##*/} random' or '${0##*/} <num>' to view package details"
+	echo
+	exit
+fi
+
+if [ $# -ne 1 ]; then
+	echo
+	echo "Know Thy Packages by Rohitt Vashishtha"
+	echo
+	echo "..Commands"
+	echo ".... ${0##*/} update - update installed packages list"
+	echo ".... ${0##*/} <number> - show package number <number> in alphabetically sorted list. (no-sanitize)"
+	echo ".... ${0##*/} random - show random package (prefer)"
+	echo
+	echo "..Troubleshooting"
+	echo "....Error like file not found - make sure $pathtofile can be created and run 'ktp update'"
+	echo "....Errors related to apt - Google that shit. Or, run apt update and see what's the issue."
+	echo "....Anything else- Apply your scripting skills or contact script author."
+	echo
+	exit 
+fi
+
+line=1
+
+echo "Know Thy Packages"
+echo
+if [ $# -eq 1 ] && [ "$1" == "random" ]; then
+	line="$( echo $(( ( RANDOM % $(wc -l $pathtofile | cut -f1 -d' ' ) )  + 1 )) 2>/dev/null)"
+fi
+
+if [ $@ -eq 1 ]; then
+	line=$1
+fi
+
+apt show "$(cat $pathtofile | cut -f1 -d','| head -n$line | tail -n1)"
