@@ -1,0 +1,8 @@
+#! /usr/bin/env bash
+PORT=$1
+	if (: < /dev/tcp/portquiz.net/$PORT) 2>/dev/null; then     
+			echo success $PORT
+
+	else    
+		echo failed $PORT
+	fi
