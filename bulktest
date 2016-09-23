@@ -1,0 +1,10 @@
+#! /usr/bin/env bash
+testports 21
+testports 22
+testports 873
+testports 6665
+testports 29418
+testports 123
+testports 3389
+testports 25
+testports 20
