@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+echo
+echo "****Deployment Script by Rohitt Vashishtha****"
+
+
+
+if [ $# != 2 ];
+then
+	echo "Usage: deploy branch-name /absolute/path/to/your/web/content"
+	echo "       use branch 'master' to deploy to apache2 home directory"
+	echo
+	exit 0
+fi
+
+branch=$1
+path1="$2"
+path="$path1/*"
+
+destination="/var/www/html/$1"
+if [ $branch == "master" ];
+then
+	destination="/var/www/html"
+fi
+
+
+#script to deploy files on Apache2 Web Server
+rm -r "$destination" 2>/dev/null
+mkdir "$destination" 2>/dev/null
+cp -R $path "$destination"
+result=$?
+if [ $result == 0 ];
+then
+	echo "Deployment Successful For Branch $1!"
+	echo "Deployed $(find $path1 -type f -print | wc -l) Files From $path1"
+	echo
+fi
+if [ $result != 0 ];
+then
+	echo "Deployment Failed For Branch $1!"
+	echo
+	rm -R "$destination"
+fi
+
