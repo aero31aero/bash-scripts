@@ -1,0 +1,30 @@
+#! /usr/bin/env bash
+clear
+
+SOURCE=$1.c
+INPUT=$2
+OUTPUT=$3
+
+gcc $SOURCE
+
+if [ $? -ne 0 ]; then
+	echo "Compilation Error! Please debug!"
+	exit 1
+fi
+
+clear
+echo "Compilation Successful!"
+
+echo
+echo "Program Input:"
+echo "======================="
+cat in
+
+echo
+echo "Program Output:"
+echo "======================="
+
+./a.out < $INPUT > $OUTPUT
+cat $OUTPUT
+
+echo
