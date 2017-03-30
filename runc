@@ -8,7 +8,7 @@ OUTPUT=$3
 gcc $SOURCE
 
 if [ $? -ne 0 ]; then
-	echo "Compilation Error! Please debug!"
+	echo "Compilation Error! Please Debug!"
 	exit 1
 fi
 
@@ -17,12 +17,12 @@ echo "Compilation Successful!"
 
 echo
 echo "Program Input:"
-echo "======================="
+echo "===================="
 cat in
 
 echo
 echo "Program Output:"
-echo "======================="
+echo "===================="
 
 ./a.out < $INPUT > $OUTPUT
 cat $OUTPUT
