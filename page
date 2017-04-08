@@ -1,0 +1,63 @@
+#! /usr/bin/env python3
+
+import sys, getopt
+
+# TODO add option for --next and --previous, storing the current page in an environment variable.
+
+def printUsage():
+	usage = """
+	Paging tool by Rohitt Vashishtha
+		
+	Usage: pipeinput | page --size=<pagesize> --num=<pagenum>
+
+	Description: Use this tool to print a long file a few lines at a time
+	and run mre commands manually after each cycle. Makes dealing with large
+	amount of data easier for mere humans. Have fun. :)
+
+	License: "THE BEER-WARE LICENSE" (Revision 42): Rohitt Vashishtha wrote
+	this file. As long as you retain this notice you can do whatever you
+	want with this stuff. If we meet some day, and you think this stuff is
+	worth it, you can buy me a beer in return.
+	- Rohitt Vashishtha
+"""
+	print(usage)
+
+def getDefaultParams():
+	params = {}
+	params['size']=10
+	params['num']=1
+	return params
+
+def setParams(argv):
+	params = getDefaultParams()
+	try:
+		opts, args = getopt.getopt(argv,"hs:n:",["size=","num="])
+	except getopt.GetoptError:
+		print ('Incorrect usage. Use page -h to print usage.')
+		sys.exit(2)
+	for opt, arg in opts:
+		if opt == '-h':
+			printUsage()
+			sys.exit(0)
+		elif opt in ("-n", "--num"):
+			params['num'] = int(arg)
+		elif opt in ("-s", "--size"):
+			params['size'] = int(arg)
+	return params
+
+def printPage(params):
+	linestoskip = params['size']*params['num']
+	linestoprint = params['size']
+	for line in sys.stdin:
+		if linestoskip > 0:
+			linestoskip -= 1
+			# print("> ",line)
+		if linestoskip == 0 and linestoprint > 0:
+			sys.stdout.write(line)
+			# print(line)
+			linestoprint -= 1
+		if linestoprint == 0:
+			sys.exit(0)
+
+if __name__ == "__main__":
+	printPage(setParams(sys.argv[1:]))
