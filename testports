@@ -3,6 +3,6 @@ PORT=$1
 	if (: < /dev/tcp/portquiz.net/$PORT) 2>/dev/null; then     
 			echo success $PORT
 
-	else    
+	else
 		echo failed $PORT
 	fi

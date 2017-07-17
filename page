@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-import sys, getopt
+import sys, getopt, os, pickle
 
 # TODO add option for --next and --previous, storing the current page in an environment variable.
 
@@ -26,12 +26,19 @@ def getDefaultParams():
 	params = {}
 	params['size']=10
 	params['num']=1
+	try:
+		file = open('~/Documents/scripts/params.page', 'r')
+		params['num'] = int(file.readline())
+	except FileNotFoundError:
+		pass
+	except ValueError:
+		pass
 	return params
 
 def setParams(argv):
 	params = getDefaultParams()
 	try:
-		opts, args = getopt.getopt(argv,"hs:n:",["size=","num="])
+		opts, args = getopt.getopt(argv,"hs:n:",["size=","num=","next","prev"])
 	except getopt.GetoptError:
 		print ('Incorrect usage. Use page -h to print usage.')
 		sys.exit(2)
@@ -43,10 +50,21 @@ def setParams(argv):
 			params['num'] = int(arg)
 		elif opt in ("-s", "--size"):
 			params['size'] = int(arg)
+		elif opt in ("--next"):
+			params['num'] += 1
+		elif opt in ("--prev"):
+			params['num'] -= 1
+	try:
+		file = open('~/Documents/scripts/params.page', 'w+')
+		file.write(str(params['num']))
+		file.close()
+	except FileNotFoundError:
+		pass
+	print(params)
 	return params
 
 def printPage(params):
-	linestoskip = params['size']*params['num']
+	linestoskip = params['size']*(params['num']-1)
 	linestoprint = params['size']
 	for line in sys.stdin:
 		if linestoskip > 0:
