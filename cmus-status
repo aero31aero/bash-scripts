@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+DATA=$(cmus-remote -Q)
+ARTIST=$(echo "$DATA" | grep 'tag artist ' | cut -f 3- -d ' ')
+TITLE=$(echo "$DATA" | grep 'tag title ' | cut -f 3- -d ' ')
+ALBUM=$(echo "$DATA" | grep 'tag album ' | cut -f 3- -d ' ')
+POSITION=$(echo "$DATA" | grep 'position ' | cut -f 2- -d ' ')
+DURATION=$(echo "$DATA" | grep 'duration ' | cut -f 2- -d ' ')
+
+ROW="( $((POSITION/60%60)):$((POSITION%60)) -> $((DURATION/60%60)):$((DURATION%60)) ) $ARTIST - $TITLE ($ALBUM)"
+echo $ROW
