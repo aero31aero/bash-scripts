@@ -1,0 +1,110 @@
+#!/bin/sh
+
+# This script uses commands from the cgroup-tools package. The cgroup-tools commands
+# access the cgroup filesystem directly which is against the (new-ish) kernel's
+# requirement that cgroups are managed by a single entity (which usually will be
+# systemd). Additionally there is a v2 cgroup api in development which will probably
+# replace the existing api at some point. So expect this script to break in the future.
+# The correct way forward would be to use systemd's apis to create the cgroups, but
+# afaik systemd currently (feb 2018) only exposes dbus apis for which there are no
+# command line tools yet, and I didn't feel like writing those.
+
+# https://unix.stackexchange.com/questions/44985/limit-memory-usage-for-a-single-linux-process/279175#279175
+
+# strict mode: error if commands fail or if unset variables are used
+set -eu
+
+if [ "$#" -lt 2 ]
+then
+    echo Usage: `basename $0` "<limit> <command>..."
+    echo or: `basename $0` "<memlimit> -s <swaplimit> <command>..."
+    exit 1
+fi
+
+cgname="limitmem_$$"
+
+# parse command line args and find limits
+
+limit="$1"
+swaplimit="$limit"
+shift
+
+if [ "$1" = "-s" ]
+then
+    shift
+    swaplimit="$1"
+    shift
+fi
+
+if [ "$1" = -- ]
+then
+    shift
+fi
+
+if [ "$limit" = "$swaplimit" ]
+then
+    memsw=0
+    echo "limiting memory to $limit (cgroup $cgname) for command $@" >&2
+else
+    memsw=1
+    echo "limiting memory to $limit and total virtual memory to $swaplimit (cgroup $cgname) for command $@" >&2
+fi
+
+# create cgroup
+sudo cgcreate -g "memory:$cgname"
+sudo cgset -r memory.limit_in_bytes="$limit" "$cgname"
+bytes_limit=`cgget -g "memory:$cgname" | grep memory.limit_in_bytes | cut -d\  -f2`
+
+# try also limiting swap usage, but this fails if the system has no swap
+# if sudo cgset -r memory.memsw.limit_in_bytes="$swaplimit" "$cgname"
+# then
+#     bytes_swap_limit=`cgget -g "memory:$cgname" | grep memory.memsw.limit_in_bytes | cut -d\  -f2`
+# else
+#     echo "failed to limit swap"
+#     memsw=0
+# fi
+
+# create a waiting sudo'd process that will delete the cgroup once we're done. This
+# prevents the user needing to enter their password to sudo again after the main
+# command exists, which may take longer than sudo's timeout.
+tmpdir=${XDG_RUNTIME_DIR:-$TMPDIR}
+tmpdir=${tmpdir:-/tmp}
+fifo="$tmpdir/limitmem_$$_cgroup_closer"
+mkfifo --mode=u=rw,go= "$fifo"
+sudo -b sh -c "head -c1 '$fifo' >/dev/null ; cgdelete -g 'memory:$cgname'"
+
+# spawn subshell to run in the cgroup. If the command fails we still want to remove the cgroup so unset '-e'.
+set +e
+(
+set -e
+# move subshell into cgroup
+sudo cgclassify -g "memory:$cgname" --sticky `sh -c 'echo $PPID'`  # $$ returns the main shell's pid, not this subshell's.
+exec "$@"
+)
+
+# grab exit code 
+exitcode=$?
+
+set -e
+
+# show memory usage summary
+
+peak_mem=`cgget -g "memory:$cgname" | grep memory.max_usage_in_bytes | cut -d\  -f2`
+failcount=`cgget -g "memory:$cgname" | grep memory.failcnt | cut -d\  -f2`
+percent=`expr "$peak_mem" / \( "$bytes_limit" / 100 \)`
+
+echo "peak memory used: $peak_mem ($percent%); exceeded limit $failcount times" >&2
+
+if [ "$memsw" = 1 ]
+then
+    peak_swap=`cgget -g "memory:$cgname" | grep memory.memsw.max_usage_in_bytes | cut -d\  -f2`
+    swap_failcount=`cgget -g "memory:$cgname" |grep memory.memsw.failcnt | cut -d\  -f2`
+    swap_percent=`expr "$peak_swap" / \( "$bytes_swap_limit" / 100 \)`
+
+    echo "peak virtual memory used: $peak_swap ($swap_percent%); exceeded limit $swap_failcount times" >&2
+fi
+
+# remove cgroup by sending a byte through the pipe
+echo 1 > "$fifo"
+rm "$fifo"
+
