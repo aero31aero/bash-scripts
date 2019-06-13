@@ -14,7 +14,7 @@ tmux select-pane -t main:2.2
 tmux resize-pane -x 80
 tmux split-window -v
 
-tmux send-keys -t main:1.1 'glances' C-m
+tmux send-keys -t main:1.1 'htop' C-m
 tmux send-keys -t main:1.2 'cmus' C-m
 
 tmux select-window -t main:1
