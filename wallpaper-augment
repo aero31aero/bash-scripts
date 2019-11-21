@@ -1,0 +1,89 @@
+#! /usr/bin/env bash
+
+export FILE_TO_WATCH=/tmp/wallpaper-augment-file
+convert -size 1920X1080 gradient:none-#000000aa -function Polynomial -4,4,0 -evaluate Pow 0.9 /tmp/grad.png
+
+make_file_to_watch() {
+	CMUS=$(cmus-status | cut -f 2- -d ')')
+	WATSON="Watson: $(watson status)"
+	CURR_URL=$(gsettings get org.gnome.desktop.background picture-uri)
+	CURR_URL=${CURR_URL#"'file://"}
+	CURR_URL=${CURR_URL%"'"}
+	TIME=$(date "+%I:%M %p")
+	PLAYING=$(cmus-remote -Q | head -n 1 | cut -f 2 -d ' ')
+
+	STATUS_CONTENT="$CMUS|$WATSON|$CURR_URL|$TIME|$PLAYING"
+	FILE_CONTENT=$(cat $FILE_TO_WATCH | tr '\n' ' ')
+	diff -w <(echo "$FILE_CONTENT") <(echo "$STATUS_CONTENT" | cut -c 2-)
+	if [ $? == 0 ]; then
+		echo "wallpaper-augment: No changes."
+	else
+		echo $STATUS_CONTENT > $FILE_TO_WATCH
+		echo "wallpaper-augment: Writing changes."
+	fi
+}
+
+augment_wallpaper() {
+	CURR_URL=$(gsettings get org.gnome.desktop.background picture-uri)
+	CURR_URL=${CURR_URL#"'file://"}
+	CURR_URL=${CURR_URL%"'"}
+
+	if test -f "$CURR_URL.original"; then
+		echo "wallpaper-augment: Using existing wallpaper."
+	else
+		echo "wallpaper-augment: Using new wallpaper."
+		rm ~/.config/variety/wallpaper/*.original
+		cp $CURR_URL $CURR_URL.original
+	fi
+
+	CMUS=$(cmus-status | cut -f 2- -d ')')
+	WATSON="Watson: $(watson status)"
+	TIME=$(date "+%I:%M %p")
+	DATE=$(date "+%A, %B %d")
+	PLAYING=$(cmus-remote -Q | head -n 1 | cut -f 2 -d ' ')
+	echo $PLAYING
+
+	PLAYING_ICON="play.png"
+	CMUS_COLOR="white"
+	if [ "$PLAYING" = "paused" ]; then
+		PLAYING_ICON="dull_pause.png"
+		CMUS_COLOR="#77777777"
+	fi
+
+	WATSON_COLOR="white"
+	if [ "$WATSON" = "Watson: No project started." ]; then
+		WATSON_COLOR="#77777777"
+	fi	
+
+	convert $CURR_URL.original /tmp/grad.png -compose hardlight -composite $CURR_URL.0.temp
+	convert $CURR_URL.0.temp -font 'Roboto-Condensed-Regular'\
+			-gravity west -pointsize 30\
+				-fill '#00000044' -annotate +88+418 "$CMUS"\
+				-fill $CMUS_COLOR -annotate +90+420 "$CMUS"\
+				-fill '#00000044' -annotate +88+458 "$WATSON"\
+				-fill $WATSON_COLOR  -annotate +90+460 "$WATSON"\
+			-gravity East -pointsize 100\
+				-fill '#00000044' -annotate +48+383 "$TIME"\
+				-fill white -annotate +50+385 "$TIME"\
+			-pointsize 30\
+				-fill '#00000044' -annotate +48+458 "$DATE"\
+				-fill '#77777777' -annotate +50+460 "$DATE"\
+			$CURR_URL.1.temp
+
+	convert $CURR_URL.1.temp /home/rohitt/Documents/scripts/assets/$PLAYING_ICON\
+			-gravity west -geometry +50+420 -composite $CURR_URL.2.temp
+	cp $CURR_URL.2.temp $CURR_URL
+	rm $CURR_URL.*.temp
+	echo "wallpaper-augment: Setting $CURR_URL."
+}
+
+export -f augment_wallpaper
+export -f make_file_to_watch
+
+augment_wallpaper
+
+watch -n1 --exec bash -c make_file_to_watch &
+echo $FILE_TO_WATCH | entr bash -c augment_wallpaper
+
+# kill all processes (here, the 'watch' process)
+trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
