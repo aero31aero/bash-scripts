@@ -14,10 +14,8 @@ make_file_to_watch() {
 
 	STATUS_CONTENT="$CMUS|$WATSON|$CURR_URL|$TIME|$PLAYING"
 	FILE_CONTENT=$(cat $FILE_TO_WATCH | tr '\n' ' ')
-	diff -w <(echo "$FILE_CONTENT") <(echo "$STATUS_CONTENT" | cut -c 2-)
-	if [ $? == 0 ]; then
-		echo "wallpaper-augment: No changes."
-	else
+	diff -w <(echo "$FILE_CONTENT") <(echo "$STATUS_CONTENT" | cut -c 2-) >/dev/null
+	if [ $? != 0 ]; then
 		echo $STATUS_CONTENT > $FILE_TO_WATCH
 		echo "wallpaper-augment: Writing changes."
 	fi
@@ -41,7 +39,6 @@ augment_wallpaper() {
 	TIME=$(date "+%I:%M %p")
 	DATE=$(date "+%A, %B %d")
 	PLAYING=$(cmus-remote -Q | head -n 1 | cut -f 2 -d ' ')
-	echo $PLAYING
 
 	PLAYING_ICON="play.png"
 	CMUS_COLOR="white"
@@ -78,12 +75,13 @@ augment_wallpaper() {
 }
 
 export -f augment_wallpaper
-export -f make_file_to_watch
 
-augment_wallpaper
+echo $FILE_TO_WATCH | entr bash -c augment_wallpaper &
 
-watch -n1 --exec bash -c make_file_to_watch &
-echo $FILE_TO_WATCH | entr bash -c augment_wallpaper
+while true; do
+	make_file_to_watch
+	sleep 1
+done
 
-# kill all processes (here, the 'watch' process)
+# kill all processes (here, the 'entr' process)
 trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
