@@ -11,8 +11,9 @@ make_file_to_watch() {
 	CURR_URL=${CURR_URL%"'"}
 	TIME=$(date "+%I:%M %p")
 	PLAYING=$(cmus-remote -Q | head -n 1 | cut -f 2 -d ' ')
+	BLUR_VALUE=$(jq .wallpaper.blur ~/.config/rohitt.json)
 
-	STATUS_CONTENT="$CMUS|$WATSON|$CURR_URL|$TIME|$PLAYING"
+	STATUS_CONTENT="$CMUS|$WATSON|$CURR_URL|$TIME|$PLAYING|$BLUR_VALUE"
 	FILE_CONTENT=$(cat $FILE_TO_WATCH | tr '\n' ' ')
 	diff -w <(echo "$FILE_CONTENT") <(echo "$STATUS_CONTENT" | cut -c 2-) >/dev/null
 	if [ $? != 0 ]; then
@@ -25,6 +26,14 @@ augment_wallpaper() {
 	CURR_URL=$(gsettings get org.gnome.desktop.background picture-uri)
 	CURR_URL=${CURR_URL#"'file://"}
 	CURR_URL=${CURR_URL%"'"}
+
+	string='My long string'
+	if [[ $CURR_URL != *"variety/wallpaper/wallpaper-filter"* ]]; then
+		# Fail if not a variety wallpaper. We do not want to modify wallpapers not by variety
+		# or we can accidentally modify the original wallpaper file.
+		echo "wallpaper-augment: Fatal error. Tried operating on a non-variety wallpaper."
+		return 1
+	fi
 
 	if test -f "$CURR_URL.original"; then
 		echo "wallpaper-augment: Using existing wallpaper."
@@ -39,6 +48,7 @@ augment_wallpaper() {
 	TIME=$(date "+%I:%M %p")
 	DATE=$(date "+%A, %B %d")
 	PLAYING=$(cmus-remote -Q | head -n 1 | cut -f 2 -d ' ')
+	BLUR_VALUE=$(jq .wallpaper.blur ~/.config/rohitt.json)
 
 	PLAYING_ICON="play.png"
 	CMUS_COLOR="white"
@@ -50,10 +60,11 @@ augment_wallpaper() {
 	WATSON_COLOR="white"
 	if [ "$WATSON" = "Watson: No project started." ]; then
 		WATSON_COLOR="#77777777"
-	fi	
+	fi
 
 	convert $CURR_URL.original /tmp/grad.png -compose hardlight -composite $CURR_URL.0.temp
-	convert $CURR_URL.0.temp -font 'Roboto-Condensed-Regular'\
+	convert $CURR_URL.0.temp -channel RGBA -blur 0x$BLUR_VALUE $CURR_URL.1.temp
+	convert $CURR_URL.1.temp -font 'Roboto-Condensed-Regular'\
 			-gravity west -pointsize 30\
 				-fill '#00000044' -annotate +88+418 "$CMUS"\
 				-fill $CMUS_COLOR -annotate +90+420 "$CMUS"\
@@ -65,11 +76,11 @@ augment_wallpaper() {
 			-pointsize 30\
 				-fill '#00000044' -annotate +48+458 "$DATE"\
 				-fill '#77777777' -annotate +50+460 "$DATE"\
-			$CURR_URL.1.temp
+			$CURR_URL.2.temp
 
-	convert $CURR_URL.1.temp /home/rohitt/Documents/scripts/assets/$PLAYING_ICON\
-			-gravity west -geometry +50+420 -composite $CURR_URL.2.temp
-	cp $CURR_URL.2.temp $CURR_URL
+	convert $CURR_URL.2.temp /home/rohitt/Documents/scripts/assets/$PLAYING_ICON\
+			-gravity west -geometry +50+420 -composite $CURR_URL.3.temp
+	cp $CURR_URL.3.temp $CURR_URL
 	rm $CURR_URL.*.temp
 	echo "wallpaper-augment: Setting $CURR_URL."
 }

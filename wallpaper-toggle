@@ -1,0 +1,17 @@
+#! /usr/bin/env bash
+
+FILE="/home/rohitt/.config/rohitt.json"
+
+BLUR_VALUE=$(jq .wallpaper.blur $FILE)
+
+if [ "$BLUR_VALUE" = "0" ]; then
+	TARGET_VALUE=10
+else
+	TARGET_VALUE=0
+fi
+
+if [[ $# -eq 1 ]] ; then
+    TARGET_VALUE=$1
+fi
+
+jq .wallpaper.blur=$TARGET_VALUE $FILE > /tmp/json && mv /tmp/json $FILE
