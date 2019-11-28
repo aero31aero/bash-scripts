@@ -1,9 +1,10 @@
 #! /usr/bin/env bash
 
-export FILE_TO_WATCH=/tmp/wallpaper-augment-file
-convert -size 1920X1080 gradient:none-#000000aa -function Polynomial -4,4,0 -evaluate Pow 0.9 /tmp/grad.png
+TEMP_DIR=/home/rohitt/ramdisk
+FILE_TO_WATCH=$TEMP_DIR/wallpaper-augment-file
+convert -size 1920X1080 gradient:none-#000000aa -function Polynomial -4,4,0 -evaluate Pow 0.9 $TEMP_DIR/grad.png
 
-make_file_to_watch() {
+check_if_wallpaper_needs_changing() {
 	CMUS=$(cmus-status | cut -f 2- -d ')')
 	WATSON="Watson: $(watson status)"
 	CURR_URL=$(gsettings get org.gnome.desktop.background picture-uri)
@@ -19,7 +20,9 @@ make_file_to_watch() {
 	if [ $? != 0 ]; then
 		echo $STATUS_CONTENT > $FILE_TO_WATCH
 		echo "wallpaper-augment: Writing changes."
+		return 0 # trigger change
 	fi
+	return 1
 }
 
 augment_wallpaper() {
@@ -40,7 +43,8 @@ augment_wallpaper() {
 	else
 		echo "wallpaper-augment: Using new wallpaper."
 		rm ~/.config/variety/wallpaper/*.original
-		cp $CURR_URL $CURR_URL.original
+		# add black overlay to wallpaper, and use it as base for further changes.
+		convert $CURR_URL $TEMP_DIR/grad.png -gravity center -compose hardlight -composite $CURR_URL.original
 	fi
 
 	CMUS=$(cmus-status | cut -f 2- -d ')')
@@ -62,9 +66,8 @@ augment_wallpaper() {
 		WATSON_COLOR="#77777777"
 	fi
 
-	convert $CURR_URL.original /tmp/grad.png -compose hardlight -composite $CURR_URL.0.temp
-	convert $CURR_URL.0.temp -channel RGBA -blur 0x$BLUR_VALUE $CURR_URL.1.temp
-	convert $CURR_URL.1.temp -font 'Roboto-Condensed-Regular'\
+	convert $CURR_URL.original -channel RGBA -blur 0x$BLUR_VALUE $TEMP_DIR/post-blur
+	convert $TEMP_DIR/post-blur -font 'Roboto-Condensed-Regular'\
 			-gravity west -pointsize 30\
 				-fill '#00000044' -annotate +88+418 "$CMUS"\
 				-fill $CMUS_COLOR -annotate +90+420 "$CMUS"\
@@ -76,23 +79,22 @@ augment_wallpaper() {
 			-pointsize 30\
 				-fill '#00000044' -annotate +48+458 "$DATE"\
 				-fill '#77777777' -annotate +50+460 "$DATE"\
-			$CURR_URL.2.temp
+			$TEMP_DIR/post-text
 
-	convert $CURR_URL.2.temp /home/rohitt/Documents/scripts/assets/$PLAYING_ICON\
-			-gravity west -geometry +50+420 -composite $CURR_URL.3.temp
-	cp $CURR_URL.3.temp $CURR_URL
-	rm $CURR_URL.*.temp
+	convert $TEMP_DIR/post-text /home/rohitt/Documents/scripts/assets/$PLAYING_ICON\
+			-gravity west -geometry +50+420 -composite $TEMP_DIR/post-icon
+	cp $TEMP_DIR/post-icon $CURR_URL
+	# rm $CURR_URL.*.temp
 	echo "wallpaper-augment: Setting $CURR_URL."
 }
 
-export -f augment_wallpaper
-
-echo $FILE_TO_WATCH | entr bash -c augment_wallpaper &
-
+augment_wallpaper
 while true; do
-	make_file_to_watch
+	if check_if_wallpaper_needs_changing; then
+		augment_wallpaper
+	fi
 	sleep 1
 done
 
-# kill all processes (here, the 'entr' process)
+# kill all processes
 trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
