@@ -1,0 +1,33 @@
+#! /usr/bin/env bash
+
+# Script to create an easy to read summary for commits
+# when reviewing or reworking a set of commits.
+
+# Typical output is as follows:
+# $ git branch-print
+# $ tree rework-my-branch
+# rework-my-branch
+# ├── 1-a383277ffd.diff
+# ├── 2-54c6545c73.diff
+# ├── 3-8fa91cba32.diff
+# ├── 4-08b3ce0983.diff
+# ├── 5-067d8a84f1.diff
+# ├── 6-02e8a3df7e.diff
+# ├── 7-317930d61d.diff
+# ├── commits
+# └── summary
+
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+rm -rf rework-$BRANCH
+mkdir rework-$BRANCH
+
+git log master..HEAD --oneline > rework-$BRANCH/summary
+git log master..HEAD > rework-$BRANCH/commits
+
+NUMBERED_COMMITS=$()
+git log master..HEAD --oneline | awk '{print NR  " " $s}' | while read x; do
+	COUNT=$(echo $x | cut -d' ' -f 1)
+	COMMIT=$(echo $x | cut -d' ' -f 2)
+	git show $COMMIT > rework-$BRANCH/$COUNT-$COMMIT.diff
+done
